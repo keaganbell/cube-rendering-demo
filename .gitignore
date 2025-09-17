@@ -1,0 +1,6 @@
+.vscode/
+build/
+bin/
+*.zip
+*.rdbg
+*.4coder
