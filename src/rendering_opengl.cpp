@@ -104,7 +104,7 @@ static inline void CreateMainProgram(opengl_main_program *Result, opengl *OpenGL
         FragPos = _Position;
         Normal = _Normal;
 
-        gl_Position = PVM*vec4(_Position, 1.0);
+        gl_Position = PVM*vec4(_Position, 1.0f);
     }
     )FOO";
 
@@ -134,7 +134,7 @@ static inline void CreateMainProgram(opengl_main_program *Result, opengl *OpenGL
         vec3 LightDir2 = normalize(LightPos2 - FragPos);
         float LightDistance2 = distance(LightPos2, FragPos);
         
-        float Ambient = 0.15;
+        float Ambient = 0.25;
         float Diffuse1 = 2.0*max(dot(Norm, LightDir), 0.0)/(LightDistance*LightDistance);
         float Diffuse2 = 4.0*max(dot(Norm, LightDir2), 0.0)/(LightDistance2*LightDistance2);
         float Specular = 0.1*pow(max(dot(ViewDir, reflect(-LightDir, Norm)), 0.0), 8);
@@ -249,17 +249,22 @@ static void SetupBatchRenderer(opengl *OpenGL) {
 
     OpenGL->glGenBuffers(1, &OpenGL->VBO);
     OpenGL->glBindBuffer(GL_ARRAY_BUFFER, OpenGL->VBO);
-    OpenGL->glBufferData(GL_ARRAY_BUFFER, OpenGL->MaxVertexCount*sizeof(vertex), NULL, GL_DYNAMIC_DRAW);
+    OpenGL->glBufferData(GL_ARRAY_BUFFER, OpenGL->MaxVertexCount*sizeof(vertex), 0, GL_DYNAMIC_DRAW);
 
     OpenGL->glGenBuffers(1, &OpenGL->IBO);
     OpenGL->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->IBO);
-    OpenGL->glBufferData(GL_ELEMENT_ARRAY_BUFFER, OpenGL->MaxIndexCount*sizeof(u32), NULL, GL_DYNAMIC_DRAW);
+    OpenGL->glBufferData(GL_ELEMENT_ARRAY_BUFFER, OpenGL->MaxIndexCount*sizeof(u32), 0, GL_DYNAMIC_DRAW);
 
-    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_COLOR, 4, GL_FLOAT, false, sizeof(vertex), (void *)offsetof(vertex, Color));
-    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_POSITION, 3, GL_FLOAT, false, sizeof(vertex), (void *)offsetof(vertex, Position));
-    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_NORMAL, 3, GL_FLOAT, false, sizeof(vertex), (void *)offsetof(vertex, Normal));
-    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_TEXCOORD, 2, GL_FLOAT, false, sizeof(vertex), (void *)offsetof(vertex, UV));
-    OpenGL->glVertexAttribIPointer(ATTRIBUTE_TYPE_TEXTUREID, 1, GL_INT, sizeof(vertex), (void *)offsetof(vertex, TextureID));
+    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_COLOR, 4, GL_FLOAT, false, sizeof(vertex), (void *)OFFSETOF(vertex, Color));
+    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_POSITION, 3, GL_FLOAT, false, sizeof(vertex), (void *)OFFSETOF(vertex, Position));
+    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_NORMAL, 3, GL_FLOAT, false, sizeof(vertex), (void *)OFFSETOF(vertex, Normal));
+    OpenGL->glVertexAttribPointer (ATTRIBUTE_TYPE_TEXCOORD, 2, GL_FLOAT, false, sizeof(vertex), (void *)OFFSETOF(vertex, UV));
+    OpenGL->glVertexAttribIPointer(ATTRIBUTE_TYPE_TEXTUREID, 1, GL_INT, sizeof(vertex), (void *)OFFSETOF(vertex, TextureID));
+    OpenGL->glEnableVertexAttribArray(0);
+    OpenGL->glEnableVertexAttribArray(1);
+    OpenGL->glEnableVertexAttribArray(2);
+    OpenGL->glEnableVertexAttribArray(3);
+    OpenGL->glEnableVertexAttribArray(4);
 
     OpenGL->glBindVertexArray(0);
 }
@@ -292,7 +297,7 @@ void DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsiz
         case GL_DEBUG_SOURCE_SHADER_COMPILER:      { source_index = 2; } break;
         case GL_DEBUG_SOURCE_THIRD_PARTY:          { source_index = 3; } break;
         case GL_DEBUG_SOURCE_APPLICATION:          { source_index = 4; } break;
-        default: { }
+        default: {}
     }
     i32 type_index   = sizeof(opengl_message_type_strings) - 1;
     switch (type) {
@@ -363,7 +368,7 @@ static void InitOpenGL(opengl *OpenGL, platform_api *Platform, opengl_info Info)
     if (Status != GL_FRAMEBUFFER_COMPLETE) {
         LERROR(GlobalPlatform->DebugPrint, "Framebuffer incomplete: 0x%x", Status);
     }
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    OpenGL->glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     // FINAL COMPOSITITE IMAGE
     CreateFinalCompositeProgram(&OpenGL->FinalCompositeProgram, OpenGL);
@@ -381,8 +386,6 @@ static void InitOpenGL(opengl *OpenGL, platform_api *Platform, opengl_info Info)
     if (Status != GL_FRAMEBUFFER_COMPLETE) {
         LERROR(GlobalPlatform->DebugPrint, "Framebuffer incomplete: 0x%x", Status);
     }
-    OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
 
     f32 QuadVertices[] = {
         // Positions   // TexCoords
@@ -407,6 +410,12 @@ static void InitOpenGL(opengl *OpenGL, platform_api *Platform, opengl_info Info)
     OpenGL->glBindVertexArray(0);
 
     OpenGL->glDebugMessageCallback(DebugCallback, NULL);
+
+    OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    OpenGL->glBindVertexArray(0);
+    OpenGL->glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 static void OpenGLBeginFrame(opengl *OpenGL, u32 ClientWidth, u32 ClientHeight) {
@@ -428,6 +437,9 @@ static void OpenGLBeginFrame(opengl *OpenGL, u32 ClientWidth, u32 ClientHeight) 
 
     RenderCommands->ClientWidth = ClientWidth;
     RenderCommands->ClientHeight = ClientHeight;
+
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 static inline void BeginUseProgram(opengl *OpenGL, opengl_debug_program *Program, render_setup *Setup) {
@@ -484,12 +496,17 @@ static inline void EndUseProgram(opengl *OpenGL, opengl_final_composite_program 
 }
 
 static void ProcessTexturedQuadBatchCommand(opengl *OpenGL, textured_quad_batch_command *Batch) {
-    BeginUseProgram(OpenGL, &OpenGL->MainProgram, &Batch->RenderSetup);
-    opengl_main_program *Program = &OpenGL->MainProgram;
+    //OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, OpenGL->MultisampledFBO);
+    OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight);
 
     OpenGL->glBindVertexArray(OpenGL->VAO);
     OpenGL->glBindBuffer(GL_ARRAY_BUFFER, OpenGL->VBO);
     OpenGL->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, OpenGL->IBO);
+
+    //BeginUseProgram(OpenGL, &OpenGL->MainProgram, &Batch->RenderSetup);
+    opengl_main_program *Program = &OpenGL->MainProgram;
+    OpenGL->glUseProgram(Program->Base.Handle);
 
     OpenGL->glBufferSubData(GL_ARRAY_BUFFER, 0, Batch->VertexCount*sizeof(vertex), Batch->Vertices);
     OpenGL->glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, Batch->IndexCount*sizeof(u32), Batch->Indices);
@@ -506,13 +523,15 @@ static void ProcessTexturedQuadBatchCommand(opengl *OpenGL, textured_quad_batch_
     
     glDrawElements(GL_TRIANGLES, Batch->IndexCount, GL_UNSIGNED_INT, 0);
 
-    EndUseProgram(OpenGL, &OpenGL->MainProgram);
+    //EndUseProgram(OpenGL, &OpenGL->MainProgram);
     OpenGL->glBindBuffer(GL_ARRAY_BUFFER, 0);
     OpenGL->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     OpenGL->glBindVertexArray(0);
+    OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void ProcessLineBatchCommand(opengl *OpenGL, line_batch_command *Lines) {
+    OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, 0);
     BeginUseProgram(OpenGL, &OpenGL->DebugProgram, &Lines->RenderSetup);
     opengl_debug_program *Program = &OpenGL->DebugProgram;
 
@@ -537,23 +556,20 @@ static void OpenGLEndFrame(opengl *OpenGL) {
     // also TODO: figure out a render pass pipeline. how to use multiple framebuffers etc
 
     render_commands *RenderCommands = &OpenGL->RenderCommands;
-    OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, OpenGL->MultisampledFBO);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, OpenGL->MultisampledTexture);
-    glViewport(0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight);
 
     for (u8 *CommandAt = RenderCommands->PushBufferBase; CommandAt < RenderCommands->PushBufferAt;) {
         render_command_header *Typeless = (render_command_header*)CommandAt;
         switch(Typeless->Type) {
             case TYPE_clear_color_command: {
                 clear_color_command *Command = (clear_color_command *)Typeless;
-                glClearColor(Command->ClearColor.r, Command->ClearColor.g, Command->ClearColor.b, Command->ClearColor.a);
-                glClear(GL_COLOR_BUFFER_BIT);
+                //glClearColor(Command->ClearColor.r, Command->ClearColor.g, Command->ClearColor.b, Command->ClearColor.a);
+                //glClear(GL_COLOR_BUFFER_BIT);
                 CommandAt += sizeof(*Command);
             } break;
 
             case TYPE_clear_depth_command: {
                 clear_depth_command *Command = (clear_depth_command *)Typeless;
-                glClear(GL_DEPTH_BUFFER_BIT);
+                //glClear(GL_DEPTH_BUFFER_BIT);
                 CommandAt += sizeof(*Command);
             } break;
 
@@ -577,27 +593,32 @@ static void OpenGLEndFrame(opengl *OpenGL) {
         }
     }
 
-    OpenGL->glBindFramebuffer(GL_READ_FRAMEBUFFER, OpenGL->MultisampledFBO); // Source (multisampled)
-    OpenGL->glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OpenGL->CompositeFBO); // Destination (regular)
-    OpenGL->glBlitFramebuffer(0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight,
-                              0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight,
-                              GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    //OpenGL->glBindFramebuffer(GL_READ_FRAMEBUFFER, OpenGL->MultisampledFBO); // Source (multisampled)
+    //OpenGL->glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OpenGL->CompositeFBO); // Destination (regular)
+    //#if 1
+    //OpenGL->glBlitFramebuffer(0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight,
+    //                          0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight,
+    //                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    //#else
+    //OpenGL->glBlitFramebuffer(0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight,
+    //                          0, 0, OpenGL->TargetWidth, OpenGL->TargetHeight,
+    //                          GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    //#endif
+    //OpenGL->glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    OpenGL->glBindVertexArray(OpenGL->CompositeVAO);
-    OpenGL->glBindBuffer(GL_ARRAY_BUFFER, OpenGL->CompositeVBO);
-    BeginUseProgram(OpenGL, &OpenGL->FinalCompositeProgram);
+    //OpenGL->glBindVertexArray(OpenGL->CompositeVAO);
+    //OpenGL->glBindBuffer(GL_ARRAY_BUFFER, OpenGL->CompositeVBO);
+    //BeginUseProgram(OpenGL, &OpenGL->FinalCompositeProgram);
 
-    glViewport(0, 0, RenderCommands->ClientWidth, RenderCommands->ClientHeight);
-    glClearColor(1.f, 0.f, 1.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //glViewport(0, 0, RenderCommands->ClientWidth, RenderCommands->ClientHeight);
+    //glClearColor(1.f, 0.f, 1.f, 1.f);
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glBindTexture(GL_TEXTURE_2D, OpenGL->CompositeTexture);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    //OpenGL->glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, OpenGL->CompositeTexture);
+    //glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
-    EndUseProgram(OpenGL, &OpenGL->FinalCompositeProgram);
-    OpenGL->glBindBuffer(GL_ARRAY_BUFFER, 0);
-    OpenGL->glBindVertexArray(0);
+    //EndUseProgram(OpenGL, &OpenGL->FinalCompositeProgram);
+    //OpenGL->glBindBuffer(GL_ARRAY_BUFFER, 0);
+    //OpenGL->glBindVertexArray(0);
 }

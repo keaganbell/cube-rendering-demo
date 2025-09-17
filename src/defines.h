@@ -26,6 +26,7 @@ typedef double f64;
 
 #define UNUSED(x) (void)x
 #define ArrayCount(Array) (sizeof(Array)/sizeof(Array[0]))
+#define OFFSETOF(type, member) ((size_t)&(((type *)0)->member))
 
 #define GiB (1<<30)
 #define MiB (1<<20)

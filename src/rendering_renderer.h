@@ -20,8 +20,6 @@ struct vertex {
     vec3 Normal;
     vec2 UV;
     u32 TextureID;
-    //u8 Emission;
-    //u8 Tone;
 };
 
 struct render_command_header {

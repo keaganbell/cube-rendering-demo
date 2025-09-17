@@ -13,6 +13,8 @@ There should be *render_demo.exe* in the build folder. Go into that folder and r
 ### Controls
 - Move with WASD
 - Look with Arrow Keys
-- 
+- Move up with Space
+- Move down with shift
+- Swap to a "debug" camera with Escape (swaps back and forth)
 
 ![Screenshot](screenshot.png)
